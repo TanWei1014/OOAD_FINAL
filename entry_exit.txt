@@ -1,0 +1,8 @@
+ENTRY | BJH 7777 | Car | S2 | 2026-02-13T20:59:21.662274400
+ENTRY | hhh | Handicapped_Vehicle | S1 | 2026-02-13T21:17:35.110469800
+ENTRY | Bkk-5555 | Handicapped_Vehicle | F1-R4-S31 | 2026-02-14T13:44:48.973915
+ENTRY | jj | Handicapped_Vehicle | F5-R3-S21 | 2026-02-14T15:35:52.298936800 | HandicappedCard: true | ReservedViolation: true
+ENTRY | kk | Handicapped_Vehicle | F5-R3-S22 | 2026-02-14T15:36:40.092901400 | HandicappedCard: true | ReservedViolation: false
+ENTRY | ll | Handicapped_Vehicle | F5-R3-S23 | 2026-02-14T15:37:21.333112500 | HandicappedCard: false | ReservedViolation: false
+ENTRY | mm | Handicapped_Vehicle | F5-R3-S24 | 2026-02-14T15:37:45.160297200 | HandicappedCard: false | ReservedViolation: true
+ENTRY | dhf-4444 | Motorcycle | F1-R1-S1 | 2026-02-14T16:19:30.941553 | HandicappedCard: false | ReservedViolation: false

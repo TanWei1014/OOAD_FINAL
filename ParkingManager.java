@@ -3,7 +3,7 @@ public class ParkingManager {
     private static ParkingManager instance;
     private double totalRevenue = 0;
     // Chapter 12: The Context holds a reference to the Strategy interface
-    private FineStrategy activeFineStrategy = new FixedFine(); 
+    private Fine activeFineStrategy = new FixedFine(); 
 
     private ParkingManager() {} 
 
@@ -12,11 +12,11 @@ public class ParkingManager {
         return instance;
     }
     
-    public void setFineStrategy(FineStrategy strategy) {
+    public void setFineStrategy(Fine strategy) {
         this.activeFineStrategy = strategy;
     }
 
-    public FineStrategy getFineStrategy() {
+    public Fine getFineStrategy() {
         return activeFineStrategy;
     }
 
