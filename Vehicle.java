@@ -12,6 +12,18 @@ public abstract class Vehicle {
         this.entryTime = System.currentTimeMillis();
         this.exitTime = 0;
         this.HandicappedCard = false;
+        this.reservedViolation = false;
+    }
+
+        // Add this method to set entry time from file
+    public void setEntryTime(long entryTime) {
+        this.entryTime = entryTime;
+    }
+    
+    // Add this method to set entry time from LocalDateTime
+    public void setEntryTime(java.time.LocalDateTime dateTime) {
+        java.time.ZoneId zoneId = java.time.ZoneId.systemDefault();
+        this.entryTime = dateTime.atZone(zoneId).toEpochSecond() * 1000;
     }
 
     public String getLicenseplate(){

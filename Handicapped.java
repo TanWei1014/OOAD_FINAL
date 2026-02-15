@@ -10,7 +10,7 @@ public class Handicapped extends ParkingSpot {
     }
 
     
-    public double freeParking(Vehicle vehicle, int hours) {
+    public double calculateParkingFee(Vehicle vehicle, int hours) {
         if (vehicle.getHandiCappedCard()) return 0;
         return hours * this.hourly_rate;
     }

@@ -46,4 +46,9 @@ public abstract class ParkingSpot {
 
     
     public abstract String getType();
+
+        public double calculateParkingFee(Vehicle vehicle, int hours) {
+        // Default calculation
+        return hours * hourly_rate;
+    }
 }

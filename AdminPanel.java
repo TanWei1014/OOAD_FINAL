@@ -19,7 +19,8 @@ public class AdminPanel extends JPanel {
         // 2. Data Table (Reporting module requirement)
         // Middle Area: Table for vehicle records (JTable)
         // Requirement 6.1: View all floors and spots (Data Table)
-        String[] cols = {"Spot ID", "Type", "Status", "Vehicle Plate", "Fine Owed"};        DefaultTableModel model = new DefaultTableModel(cols, 15); // 15 empty rows
+        String[] cols = {"Spot ID", "Type", "Status", "Vehicle Plate", "Fine Owed"};        
+        DefaultTableModel model = new DefaultTableModel(cols, 15); // 15 empty rows
         JTable table = new JTable(model);
         add(new JScrollPane(table), BorderLayout.CENTER);
 

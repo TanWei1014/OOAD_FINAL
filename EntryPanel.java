@@ -1,9 +1,8 @@
 import java.awt.*;
-import javax.swing.*;
 import java.awt.event.*;
-import java.util.ArrayList;
-
 import java.time.format.DateTimeFormatter;
+import java.util.ArrayList;
+import javax.swing.*;
 
 public class EntryPanel extends JPanel implements ActionListener {
     
@@ -27,9 +26,7 @@ public class EntryPanel extends JPanel implements ActionListener {
      private java.util.Map<String, JPanel> floorGrids = new java.util.HashMap<>();
 
 
-
-
-    private void initFloors() {
+private void initFloors() {
     for (int f = 1; f <= 5; f++) {
         String floorName = "Floor " + f;
         Floor floor = new Floor(floorName);
@@ -53,7 +50,38 @@ public class EntryPanel extends JPanel implements ActionListener {
         floors.put(floorName, floor);
         if (f == 1) currentFloor = floor;
     }
+    
+    // IMPORTANT: Add all floors to the ParkingLot singleton
+    for (Floor floor : floors.values()) {
+        ParkingLot.getInstance().addFloor(floor);
+    }
 }
+
+//     private void initFloors() {
+//     for (int f = 1; f <= 5; f++) {
+//         String floorName = "Floor " + f;
+//         Floor floor = new Floor(floorName);
+
+//         int spotNumber = 1;
+//         for (int row = 1; row <= 5; row++) {
+//             for (int col = 1; col <= 10; col++) {
+//                 ParkingSpot ps;
+//                 String spotId = "F" + f + "-R" + row + "-S" + spotNumber;
+
+//                 if (row == 1) ps = new Compact(spotId);
+//                 else if (row == 2) ps = new Handicapped(spotId);
+//                 else if (row == 3 && col <= 4) ps = new Reserved(spotId);
+//                 else ps = new Regular(spotId);
+
+//                 floor.addSpot(ps);
+//                 spotNumber++;
+//             }
+//         }
+
+//         floors.put(floorName, floor);
+//         if (f == 1) currentFloor = floor;
+//     }
+// }
 
 
     public EntryPanel() {
@@ -61,6 +89,7 @@ public class EntryPanel extends JPanel implements ActionListener {
         setBorder(BorderFactory.createTitledBorder("Vehicle Entry Interface"));
 
         initFloors();
+        ParkingLot.getInstance().setFloors(new ArrayList<>(floors.values()));
         loadOccupiedSpotsFromFile();
 
         // Left: Vehicle Detail Form (Requirement 2)
@@ -194,7 +223,7 @@ for (Floor floor : floors.values()) {
 }
 
 
-   add(form, BorderLayout.WEST);
+  add(form, BorderLayout.WEST);
   add(new JScrollPane(gridContainer), BorderLayout.CENTER);
 
   String firstFloor = floorCombo.getItemAt(0);
@@ -226,11 +255,8 @@ for (Floor floor : floors.values()) {
 }
 
 
-
-
-    @Override
-    public void actionPerformed(ActionEvent e) {
-
+@Override
+public void actionPerformed(ActionEvent e) {
     if (selectedSpot == null) {
         JOptionPane.showMessageDialog(this, "Please select a parking spot first.");
         return;
@@ -242,36 +268,72 @@ for (Floor floor : floors.values()) {
         return;
     }
 
-    Vehicle vehicle;
+    double unpaid = Payment.getOutstandingBalance(plate);
+    if (unpaid > 0) {
+        int choice = JOptionPane.showConfirmDialog(this,
+            "⚠️ This vehicle has unpaid balance of RM " + String.format("%.2f", unpaid) +
+            " from previous visit.\n\n" +
+            "This amount will be added to your total when you exit.\n\n" +
+            "Continue with entry?",
+            "Unpaid Balance Warning",
+            JOptionPane.YES_NO_OPTION,
+            JOptionPane.WARNING_MESSAGE);
+        
+        if (choice != JOptionPane.YES_OPTION) {
+            return;
+        }
+    }
 
+    Vehicle vehicle;
     String type = (String) vehicleTypeCombo.getSelectedItem();
 
-     if ("Motorcycle".equals(type)) {
+    if ("Motorcycle".equals(type)) {
         vehicle = new Motorcycle(plate);
-
-     } 
-     else if ("Car".equals(type)) {
+    } else if ("Car".equals(type)) {
         vehicle = new Car(plate);
+    } else if ("SUV/Truck".equals(type)) {
+        vehicle = new SUV(plate);
+    } else { // Handicapped
+        boolean hasCard = handicappedCheck.isSelected();
+        boolean hasVIP = VIP_reservationcheck.isSelected();
+        vehicle = new Handicapped_Vehicle(plate, hasCard);
 
-    }  
-    else if ("SUV/Truck".equals(type)) {
-       vehicle = new SUV(plate);
-
-   } 
-    else { // Handicapped
-    boolean hasCard = handicappedCheck.isSelected();
-    boolean hasVIP = VIP_reservationcheck.isSelected();
-    vehicle = new Handicapped_Vehicle(plate, hasCard);
-
-
-    if (selectedSpot.getType().equals("Reserved") && !hasVIP) {
-    vehicle.setReservedViolation(true);
-}
-   }
-
-    
+        if (selectedSpot.getType().equals("Reserved") && !hasVIP) {
+            vehicle.setReservedViolation(true);
+        }
+        
+        // ✅ MOVED THIS CODE HERE - Handicapped spot warning
+        if (vehicle instanceof Handicapped_Vehicle) {
+            Handicapped_Vehicle hv = (Handicapped_Vehicle) vehicle;
+            
+            if (!hv.getHandiCappedCard() && selectedSpot.getType().equals("Handicapped")) {
+                int choice = JOptionPane.showConfirmDialog(this,
+                    "⚠️ You do not have a handicapped card but are parking in a Handicapped spot.\n" +
+                    "You will be charged RM " + selectedSpot.getHourlyRate() + "/hour.\n\n" +
+                    "Would you like to choose a Regular spot instead (RM 5/hour)?\n" +
+                    "Click No to continue with this spot, or Yes to select another spot.",
+                    "Handicapped Spot Warning",
+                    JOptionPane.YES_NO_OPTION,
+                    JOptionPane.WARNING_MESSAGE);
+                
+                if (choice == JOptionPane.YES_OPTION) {
+                    // Clear selection and let them choose another spot
+                    selectedSpotBtn.setBorder(UIManager.getBorder("Button.border"));
+                    selectedSpotBtn = null;
+                    selectedSpot = null;
+                    return; // Exit the method to let them choose another spot
+                }
+            }
+        }
+    }
 
     selectedSpot.parkVehicle(vehicle);
+    
+    // IMPORTANT: Also add this floor to ParkingLot if not already there
+    ParkingLot lot = ParkingLot.getInstance();
+    if (!lot.getFloors().contains(currentFloor)) {
+        lot.addFloor(currentFloor);
+    }
 
     // Persist entry
     saveEntry(vehicle, selectedSpot);
@@ -284,42 +346,232 @@ for (Floor floor : floors.values()) {
     selectedSpotBtn.setBackground(Color.RED);
 }
 
-   
+//     @Override
+//     public void actionPerformed(ActionEvent e) {
 
-    private void loadOccupiedSpotsFromFile() {
+//     if (selectedSpot == null) {
+//         JOptionPane.showMessageDialog(this, "Please select a parking spot first.");
+//         return;
+//     }
+
+//     String plate = licenseField.getText().trim();
+//     if (plate.isEmpty()) {
+//         JOptionPane.showMessageDialog(this, "Enter license plate.");
+//         return;
+//     }
+
+//     Vehicle vehicle;
+
+//     String type = (String) vehicleTypeCombo.getSelectedItem();
+
+//      if ("Motorcycle".equals(type)) {
+//         vehicle = new Motorcycle(plate);
+
+//      } 
+//      else if ("Car".equals(type)) {
+//         vehicle = new Car(plate);
+
+//     }  
+//     else if ("SUV/Truck".equals(type)) {
+//        vehicle = new SUV(plate);
+
+//    } 
+//     else { // Handicapped
+//     boolean hasCard = handicappedCheck.isSelected();
+//     boolean hasVIP = VIP_reservationcheck.isSelected();
+//     vehicle = new Handicapped_Vehicle(plate, hasCard);
+
+
+//     if (selectedSpot.getType().equals("Reserved") && !hasVIP) {
+//     vehicle.setReservedViolation(true);
+// }
+//    }
+
+    
+
+//     selectedSpot.parkVehicle(vehicle);
+
+//     // Persist entry
+//     saveEntry(vehicle, selectedSpot);
+
+//     // Generate ticket
+//     Ticket ticket = new Ticket(vehicle, selectedSpot);
+//     new TicketUI((JFrame) SwingUtilities.getWindowAncestor(this), ticket).setVisible(true);
+
+//     selectedSpotBtn.setEnabled(false);
+//     selectedSpotBtn.setBackground(Color.RED);
+// }
+
+private Vehicle createVehicleFromType(String type, String plate, String line) {
+    Vehicle vehicle = null;
+    
+    if (type.contains("Car") || type.equals("Car")) {
+        vehicle = new Car(plate);
+    } else if (type.contains("Motorcycle") || type.equals("Motorcycle")) {
+        vehicle = new Motorcycle(plate);
+    } else if (type.contains("SUV") || type.equals("SUV")) {
+        vehicle = new SUV(plate);
+    } else if (type.contains("Handicapped") || type.equals("Handicapped_Vehicle")) {
+        boolean hasCard = line.contains("HandicappedCard: true");
+        vehicle = new Handicapped_Vehicle(plate, hasCard);
+    }
+    
+    if (vehicle != null && line.contains("ReservedViolation: true")) {
+        vehicle.setReservedViolation(true);
+    }
+    
+    return vehicle;
+}
+
+private void loadOccupiedSpotsFromFile() {
     try (java.io.BufferedReader br = new java.io.BufferedReader(
             new java.io.FileReader("entry_exit.txt"))) {
 
         String line;
+        // First, clear all spots (set them to available)
+        for (Floor floor : floors.values()) {
+            for (ParkingSpot spot : floor.getSpots()) {
+                spot.removeVehicle();
+            }
+        }
+        
+        // Then, mark spots as occupied based on ENTRY records without matching EXIT
+        java.util.Map<String, Boolean> activeVehicles = new java.util.HashMap<>();
+        
         while ((line = br.readLine()) != null) {
-
-            // We only care about ENTRY records
-            if (!line.startsWith("ENTRY")) continue;
-
-            // ENTRY | PLATE | VehicleType | SpotID | time
             String[] parts = line.split("\\|");
-            if (parts.length < 4) continue;
-
-            String spotId = parts[3].trim();
-
-            // Find the ParkingSpot by spotId
-            for (Floor floor : floors.values()) {
-                for (ParkingSpot ps : floor.getSpots()) {
-                    if (ps.getSpotId().equals(spotId)) {
-                        ps.parkVehicle(null); // mark occupied
-                        break;
+            if (parts.length < 2) continue;
+            
+            String type = parts[0].trim();
+            String plate = parts[1].trim();
+            
+            if (type.equals("ENTRY")) {
+                activeVehicles.put(plate, true);
+            } else if (type.equals("EXIT")) {
+                activeVehicles.remove(plate);
+            }
+        }
+        br.close();
+        
+        // Now read the file again to find ENTRY records for active vehicles
+        java.io.BufferedReader br2 = new java.io.BufferedReader(
+            new java.io.FileReader("entry_exit.txt"));
+            
+        while ((line = br2.readLine()) != null) {
+            if (!line.startsWith("ENTRY")) continue;
+            
+            String[] parts = line.split("\\|");
+            if (parts.length < 5) continue;
+            
+            String plate = parts[1].trim();
+            
+            // Only process if this vehicle hasn't exited
+            if (activeVehicles.containsKey(plate)) {
+                String spotId = parts[3].trim();
+                String type = parts[2].trim();
+                
+                // Find the spot and mark it as occupied
+                for (Floor floor : floors.values()) {
+                    for (ParkingSpot ps : floor.getSpots()) {
+                        if (ps.getSpotId().equals(spotId)) {
+                            // USE THE NEW METHOD HERE
+                            Vehicle vehicle = createVehicleFromType(type, plate, line);
+                            if (vehicle != null) {
+                                // Parse and set entry time from the file
+                                try {
+                                    String timeStr = parts[4].trim();
+                                    java.time.LocalDateTime entryTime = 
+                                        java.time.LocalDateTime.parse(timeStr);
+                                    vehicle.setEntryTime(entryTime);
+                                } catch (Exception e) {
+                                    // If time parsing fails, use current time
+                                    System.out.println("Could not parse time, using current");
+                                }
+                                
+                                ps.parkVehicle(vehicle);
+                                ParkingLot.getInstance().addFloor(floor);
+                                ParkingLot.getInstance().incrementOccupiedSpots();
+                                System.out.println("Loaded vehicle " + plate + " into spot " + spotId);
+                            }
+                            break;
+                        }
                     }
                 }
             }
         }
-
+        br2.close();
+        
     } catch (Exception e) {
-        System.out.println("No previous occupancy file found.");
+        System.out.println("No previous occupancy file found or error reading: " + e.getMessage());
+        e.printStackTrace();
     }
 }
 
+//     private void loadOccupiedSpotsFromFile() {
+//     try (java.io.BufferedReader br = new java.io.BufferedReader(
+//             new java.io.FileReader("entry_exit.txt"))) {
 
-    private void updateSpotAvailability() {
+//         String line;
+//         while ((line = br.readLine()) != null) {
+
+//             // We only care about ENTRY records
+//             if (!line.startsWith("ENTRY")) continue;
+
+//             // ENTRY | PLATE | VehicleType | SpotID | time
+//             String[] parts = line.split("\\|");
+//             if (parts.length < 4) continue;
+
+//             String spotId = parts[3].trim();
+
+//             // Find the ParkingSpot by spotId
+//             for (Floor floor : floors.values()) {
+//                 for (ParkingSpot ps : floor.getSpots()) {
+//                     if (ps.getSpotId().equals(spotId)) {
+//                         ps.parkVehicle(null); // mark occupied
+//                         break;
+//                     }
+//                 }
+//             }
+//         }
+
+//     } catch (Exception e) {
+//         System.out.println("No previous occupancy file found.");
+//     }
+// }
+
+public void refreshSpotAvailability() {
+    // This method will be called when returning to EntryPanel
+    // It updates the spot buttons based on current availability
+    
+    String currentFloorName = (String) floorCombo.getSelectedItem();
+    currentFloor = floors.get(currentFloorName);
+    spotButtons = floorButtons.get(currentFloorName);
+    
+    // Update all spot buttons
+    for (JButton btn : spotButtons) {
+        ParkingSpot ps = spotMap.get(btn);
+        
+        if (!ps.isAvailable()) {
+            btn.setEnabled(false);
+            btn.setBackground(Color.RED);
+        } else {
+            // Reset to original color based on spot type
+            switch (ps.getType()) {
+                case "Compact": btn.setBackground(Color.GREEN); break;
+                case "Handicapped": btn.setBackground(Color.BLUE); break;
+                case "Reserved": btn.setBackground(Color.YELLOW); break;
+                case "Regular": btn.setBackground(Color.GREEN); break;
+            }
+            btn.setEnabled(true);
+        }
+    }
+    
+    // Reapply vehicle type restrictions
+    updateSpotAvailability();
+}
+
+
+private void updateSpotAvailability() {
     String type = (String) vehicleTypeCombo.getSelectedItem();
 
     for (JButton btn : spotButtons) {
@@ -328,38 +580,47 @@ for (Floor floor : floors.values()) {
         if (!ps.isAvailable()) {
             btn.setEnabled(false);
             btn.setBackground(Color.RED);
+            btn.setToolTipText("Occupied");
             continue;
         }
 
         boolean allowed = false;
+        String reason = "";
 
         switch (type) {
             case "Motorcycle":
-                allowed =  ps.getType().equals("Compact");;
+                allowed = ps.getType().equals("Compact");
+                reason = allowed ? "Available" : "Motorcycles can only park in Compact spots";
                 break;
             case "Car":
-                allowed =  ps.getType().equals("Compact") ||  ps.getType().equals("Regular");
+                allowed = ps.getType().equals("Compact") || ps.getType().equals("Regular");
+                reason = allowed ? "Available" : "Cars can only park in Compact or Regular spots";
                 break;
             case "SUV/Truck":
-                allowed =  ps.getType().equals("Regular");
+                allowed = ps.getType().equals("Regular");
+                reason = allowed ? "Available" : "SUVs can only park in Regular spots";
                 break;
             case "Handicapped":
-                allowed = true;
+                allowed = true; // Can park anywhere
+                reason = "Available for handicapped vehicles";
                 break;
         }
 
         btn.setEnabled(allowed);
-        
+        btn.setToolTipText(reason);
 
-        btn.setBackground(allowed ? (ps.getType().equals("Handicapped") ? Color.BLUE :
-                                  ps.getType().equals("Reserved") ? Color.YELLOW :
-                                  Color.GREEN) : Color.LIGHT_GRAY);
+        if (!allowed) {
+            btn.setBackground(Color.LIGHT_GRAY);
+        } else {
+            // Set color based on spot type
+            switch (ps.getType()) {
+                case "Compact": btn.setBackground(Color.GREEN); break;
+                case "Handicapped": btn.setBackground(Color.BLUE); break;
+                case "Reserved": btn.setBackground(Color.YELLOW); break;
+                case "Regular": btn.setBackground(Color.GREEN); break;
+            }
+        }
     }
-   }
-
-
-   
-
 }
 
 
@@ -391,4 +652,5 @@ class TicketUI extends JDialog{
         add(infoPanel, BorderLayout.CENTER);
         add(btnOk, BorderLayout.SOUTH);
     }
+}
 }
